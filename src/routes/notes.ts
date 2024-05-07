@@ -15,12 +15,16 @@ export const notesRouter = Router()
  * @param {Response} res - The response object.
  * @returns {void} Responds with a HTTP 204 No Content status upon successful addition of the note.
  */
+  
 notesRouter.post('/', hasAuthentication, (req: Request, res: Response) => {
+  const { title, content, user, categories }: RequestBody = req.body
 
-  const {title, content, user, categories}: RequestBody = req.body
+  // Überprüfe, ob der Benutzer autorisiert ist, die Notiz hinzuzufügen
+  if (req.headers.authorization !== user) {
+    return res.status(401).send('Unauthorized')
+  }
 
   addNote(title, content, user, categories)
-
   res.status(204).send()
 })
 
@@ -34,9 +38,7 @@ notesRouter.post('/', hasAuthentication, (req: Request, res: Response) => {
  */
 notesRouter.get('/', hasAuthentication, (req: Request, res: Response) => {
   const user = req.headers.authorization!
-
   const notes: Note[] = getNotes().filter(note => note.user === user)
-
   res.status(200).send(notes)
 })
 
@@ -50,15 +52,14 @@ notesRouter.get('/', hasAuthentication, (req: Request, res: Response) => {
  * or a HTTP 404 Not Found if the note doesn't exist.
  */
 notesRouter.get('/:id', hasAuthentication, (req: Request, res: Response) => {
-
   const id: number = parseInt(req.params.id)
   const note: Note | undefined = getNoteById(id)
 
-  if (note === undefined) {
-    res.status(404).send(`Die Notiz mit ID ${id} wurde nicht gefunden.`)
-  } else {
-    res.status(200).send(note)
+  if (!note || req.headers.authorization !== note.user) {
+    return res.status(404).send(`Die Notiz mit ID ${id} wurde nicht gefunden.`)
   }
+
+  res.status(200).send(note)
 })
 
 /**
@@ -71,20 +72,17 @@ notesRouter.get('/:id', hasAuthentication, (req: Request, res: Response) => {
  * @returns {void} Responds with an HTTP 204 No Content status upon successful note creation. 
  * If the note does not exist, returns HTTP 404 Not Found.
  */
-notesRouter.put('/:id', hasAuthentication, (req: Request, res: Response) => { 
-
-  const {title, content, user, categories}: RequestBody = req.body
-
+notesRouter.put('/:id', hasAuthentication, (req: Request, res: Response) => {
+  const { title, content, user, categories }: RequestBody = req.body
   const id: number = parseInt(req.params.id)
   const oldNote: Note | undefined = getNoteById(id)
 
-  if (oldNote === undefined) {
-    res.status(404).send(`Die Notiz mit ID ${id} wurde nicht gefunden.`)
-    return
+  // Überprüfe, ob der Benutzer autorisiert ist, die Notiz zu aktualisieren
+  if (!oldNote || req.headers.authorization !== oldNote.user) {
+    return res.status(404).send(`Die Notiz mit ID ${id} wurde nicht gefunden.`)
   }
 
   updateNote(id, title, content, user, categories)
-
   res.status(204).send()
 })
 
@@ -98,13 +96,12 @@ notesRouter.put('/:id', hasAuthentication, (req: Request, res: Response) => {
  * @returns {void} If the note does not exist, returns HTTP 404 Not Found. Otherwise, returns HTTP 204 No Content on successful update.
  */
 notesRouter.patch('/:id', hasAuthentication, (req: Request, res: Response) => {
-
   const id: number = parseInt(req.params.id)
   const oldNote: Note | undefined = getNoteById(id)
 
-  if (oldNote === undefined) {
-    res.status(404).send(`Die Notiz mit ID ${id} wurde nicht gefunden.`)
-    return
+  // Überprüfe, ob der Benutzer autorisiert ist, die Notiz zu aktualisieren
+  if (!oldNote || req.headers.authorization !== oldNote.user) {
+    return res.status(404).send(`Die Notiz mit ID ${id} wurde nicht gefunden.`)
   }
 
   const title: string = req.body.title ?? oldNote.title
@@ -113,10 +110,8 @@ notesRouter.patch('/:id', hasAuthentication, (req: Request, res: Response) => {
   const categories: string[] = req.body.categories ?? oldNote.categories
 
   updateNote(id, title, content, user, categories)
-
   res.status(204).send()
- })
-
+})
 /**
  * @route DELETE /notes/:id
  * @middleware hasAuthentication
@@ -125,17 +120,15 @@ notesRouter.patch('/:id', hasAuthentication, (req: Request, res: Response) => {
  * @param {Response} res - The response object.
  * @returns {void} If the note does not exist, returns HTTP 404 Not Found. Otherwise, returns HTTP 204 No Content on successful deletion.
  */
-notesRouter.delete('/:id', hasAuthentication, (req: Request, res: Response) => { 
-
+notesRouter.delete('/:id', hasAuthentication, (req: Request, res: Response) => {
   const id: number = parseInt(req.params.id)
   const oldNote: Note | undefined = getNoteById(id)
 
-  if (oldNote === undefined) {
-    res.status(404).send(`Die Notiz mit ID ${id} wurde nicht gefunden.`)
-    return
+  // Überprüfe, ob der Benutzer autorisiert ist, die Notiz zu löschen
+  if (!oldNote || req.headers.authorization !== oldNote.user) {
+    return res.status(404).send(`Die Notiz mit ID ${id} wurde nicht gefunden.`)
   }
 
   deleteNoteById(id)
-
   res.status(204).send()
 })
